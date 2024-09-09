@@ -7,7 +7,7 @@ from google.oauth2 import service_account
 session_id = '123'  # This can be any unique identifier
 language_code = 'en-US'
 project_id= "humanrobot"
-credentials = service_account.Credentials.from_service_account_file('/Users/alexdebertolis/Desktop/humanrobot-2f6e43c1a852.json')
+credentials = service_account.Credentials.from_service_account_file('/Users/alexdebertolis/Desktop/humanrobot-2f6e43c1a852.json') # your credentials
  # Create a session client
 session_client = dialogflow.SessionsClient(credentials=credentials)
 session = session_client.session_path(project_id, session_id)
