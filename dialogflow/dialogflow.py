@@ -164,7 +164,7 @@ def create_intent_with_contexts(
     is_fallback=False
 ):
     client = dialogflow.IntentsClient()
-    parent = client.agent_path(project_id)
+    parent = get_agent_path(project_id)
     
     training_phrases = []
     for phrase in training_phrases_parts:
@@ -221,7 +221,7 @@ def create_followup_intent_with_input_context(
     parameters=[]
 ):
     client = dialogflow.IntentsClient()
-    parent = client.agent_path(project_id)
+    parent = get_agent_path(project_id)
 
     # Create training phrases
     training_phrases = []
@@ -277,30 +277,73 @@ def create_entity(project_id, entity_type_id, entity_value, synonyms):
 
 
 
-def update_intent(project_id, intent_id, new_display_name, new_training_phrases, new_responses, language_code='en'):
+def update_intent(
+    project_id,
+    intent_id,
+    new_display_name=None,
+    new_training_phrases=None,
+    new_responses=None,
+    replace_training_phrases=False,
+    replace_messages=False,
+    language_code='en'
+):
+    """
+    Updates an existing intent with options to modify the display name,
+    training phrases, and responses.
+
+    Parameters:
+    - project_id: Your Google Cloud project ID.
+    - intent_id: The ID of the intent to update.
+    - new_display_name: (Optional) The new display name for the intent.
+    - new_training_phrases: (Optional) A list of new training phrases to add.
+    - new_responses: (Optional) A list of new response messages to add.
+    - replace_training_phrases: (Optional) If True, replaces existing training phrases.
+      If False, appends new training phrases to existing ones.
+    - replace_messages: (Optional) If True, replaces existing messages.
+      If False, appends new messages to existing ones.
+    - language_code: (Optional) The language code (default is 'en').
+    """
     client = dialogflow.IntentsClient()
     intent_path = client.intent_path(project_id, intent_id)
     intent = client.get_intent(request={"name": intent_path, "language_code": language_code})
 
-    # Update the display name
-    intent.display_name = new_display_name
+    update_mask_paths = []
 
-    # Clear existing training phrases and add new ones
-    intent.training_phrases.clear()
-    for phrase in new_training_phrases:
-        part = dialogflow.Intent.TrainingPhrase.Part(text=phrase)
-        training_phrase = dialogflow.Intent.TrainingPhrase(parts=[part])
-        intent.training_phrases.append(training_phrase)
+    # Update the display name if provided
+    if new_display_name is not None:
+        intent.display_name = new_display_name
+        update_mask_paths.append('display_name')
 
-    # Clear existing messages and add new ones
-    intent.messages.clear()
-    # Ensure new_responses is a list of strings
-    text = dialogflow.Intent.Message.Text(text=new_responses)
-    message = dialogflow.Intent.Message(text=text)
-    intent.messages.append(message)
+    # Update training phrases if provided
+    if new_training_phrases is not None:
+        if replace_training_phrases:
+            # Clear existing training phrases
+            intent.training_phrases.clear()
+        # Add new training phrases
+        for phrase in new_training_phrases:
+            part = dialogflow.Intent.TrainingPhrase.Part(text=phrase)
+            training_phrase = dialogflow.Intent.TrainingPhrase(parts=[part])
+            intent.training_phrases.append(training_phrase)
+        update_mask_paths.append('training_phrases')
+
+    # Update messages if provided
+    if new_responses is not None:
+        if replace_messages:
+            # Clear existing messages
+            intent.messages.clear()
+        # Add new messages
+        for response_text in new_responses:
+            text = dialogflow.Intent.Message.Text(text=[response_text])
+            message = dialogflow.Intent.Message(text=text)
+            intent.messages.append(message)
+        update_mask_paths.append('messages')
+
+    if not update_mask_paths:
+        print("No updates specified.")
+        return
 
     # Specify the fields to update
-    update_mask = field_mask_pb2.FieldMask(paths=['display_name', 'training_phrases', 'messages'])
+    update_mask = field_mask_pb2.FieldMask(paths=update_mask_paths)
 
     # Update the intent with the specified fields and language code
     client.update_intent(
@@ -310,7 +353,7 @@ def update_intent(project_id, intent_id, new_display_name, new_training_phrases,
             "language_code": language_code
         }
     )
-    print(f"Intent {intent_id} updated with language code '{language_code}'")
+    print(f"Intent '{intent.display_name}' updated with language code '{language_code}'.")
 
 def update_intent_contexts(intent_full_name, project_id, input_context_ids, output_contexts_info, language_code='en'):
     client = dialogflow.IntentsClient()
@@ -377,7 +420,86 @@ def update_intent_parameters(intent_full_name, parameters, language_code='en'):
         }
     )
     print(f"Parameters updated for intent '{intent.display_name}'.")
+    
+def add_training_phrases_to_intent(intent_full_name, new_training_phrases_texts, language_code='en'):
+    """
+    Adds new training phrases to an existing intent without removing existing ones.
 
+    Parameters:
+    - intent_full_name: The full resource name of the intent to update.
+    - new_training_phrases_texts: A list of strings representing the new training phrases to add.
+    - language_code: The language code (default is 'en').
+    """
+    client = dialogflow.IntentsClient()
+
+    # Retrieve the existing intent
+    intent = client.get_intent(
+        request={"name": intent_full_name, "language_code": language_code}
+    )
+
+    # Build new training phrases
+    new_training_phrases = []
+    for text in new_training_phrases_texts:
+        part = dialogflow.Intent.TrainingPhrase.Part(text=text)
+        training_phrase = dialogflow.Intent.TrainingPhrase(parts=[part])
+        new_training_phrases.append(training_phrase)
+
+    # Append new training phrases to existing ones
+    intent.training_phrases.extend(new_training_phrases)
+
+    # Prepare the update mask
+    update_mask = field_mask_pb2.FieldMask(paths=['training_phrases'])
+
+    # Update the intent
+    client.update_intent(
+        request={
+            "intent": intent,
+            "update_mask": update_mask,
+            "language_code": language_code
+        }
+    )
+
+    print(f"Added {len(new_training_phrases_texts)} new training phrases to intent '{intent.display_name}'.")
+
+def add_messages_to_intent(intent_full_name, new_message_texts, language_code='en'):
+    """
+    Adds new messages to an existing intent without removing existing ones.
+
+    Parameters:
+    - intent_full_name: The full resource name of the intent to update.
+    - new_message_texts: A list of strings representing the new messages to add.
+    - language_code: The language code (default is 'en').
+    """
+    client = dialogflow.IntentsClient()
+
+    # Retrieve the existing intent
+    intent = client.get_intent(
+        request={"name": intent_full_name, "language_code": language_code}
+    )
+
+    # Build new messages
+    new_messages = []
+    for text in new_message_texts:
+        text_message = dialogflow.Intent.Message.Text(text=[text])
+        message = dialogflow.Intent.Message(text=text_message)
+        new_messages.append(message)
+
+    # Append new messages to existing ones
+    intent.messages.extend(new_messages)
+
+    # Prepare the update mask
+    update_mask = field_mask_pb2.FieldMask(paths=['messages'])
+
+    # Update the intent
+    client.update_intent(
+        request={
+            "intent": intent,
+            "update_mask": update_mask,
+            "language_code": language_code
+        }
+    )
+
+    print(f"Added {len(new_message_texts)} new messages to intent '{intent.display_name}'.")
 # Update an entity type
 def update_entity_type(project_id, entity_type_id, new_display_name):
     client = dialogflow.EntityTypesClient(credentials=credentials)
@@ -387,6 +509,50 @@ def update_entity_type(project_id, entity_type_id, new_display_name):
     entity_type.display_name = new_display_name
     client.update_entity_type(request={"entity_type": entity_type})
     print(f"Entity Type {entity_type_id} updated")
+    
+def update_entity(project_id, entity_type_id, entity_value, new_synonyms, language_code='en'):
+    """
+    Updates an entity's synonyms in a given entity type.
+
+    Parameters:
+    - project_id: Your Google Cloud project ID.
+    - entity_type_id: The ID of the entity type containing the entity.
+    - entity_value: The value of the entity to update.
+    - new_synonyms: A list of new synonyms for the entity.
+    - language_code: The language code (default is 'en').
+    """
+    client = dialogflow.EntityTypesClient()
+
+    # Construct the full path for the entity type
+    entity_type_path = client.entity_type_path(project_id, entity_type_id)
+
+    # Retrieve the existing entity type with the specified language code
+    entity_type = client.get_entity_type(
+        request={"name": entity_type_path, "language_code": language_code}
+    )
+
+    # Find and update the entity
+    updated = False
+    for entity in entity_type.entities:
+        if entity.value == entity_value:
+            entity.synonyms[:] = new_synonyms  # Update the synonyms
+            updated = True
+            break
+
+    if not updated:
+        print(f"Entity '{entity_value}' not found in Entity Type '{entity_type.display_name}'.")
+        return
+
+    # Use batch_update_entities to update the entities
+    client.batch_update_entities(
+        request={
+            "parent": entity_type_path,
+            "entities": entity_type.entities,
+            "language_code": language_code
+        }
+    )
+
+    print(f"Entity '{entity_value}' updated with new synonyms: {new_synonyms}")
 
 # Delete an intent
 def delete_intent(project_id, intent_id):
@@ -414,30 +580,130 @@ def delete_entity(project_id, entity_type_id, entity_value):
     )
     print(f"Entity {entity_value} deleted from Entity Type {entity_type_id}")
 
+# ------------------- Detection ------------------- #
+def detect_intent_texts(project_id, session_id, texts, language_code):
+    """Returns the result of detect intent with texts as inputs.
 
+    Parameters:
+    - project_id: Your Google Cloud project ID.
+    - session_id: An identifier for the conversation session.
+    - texts: A list of text inputs from the user.
+    - language_code: The language code of the agent (e.g., 'en' for English).
+    """
+    session_client = dialogflow.SessionsClient()
+
+    # Create a session path
+    session = session_client.session_path(project_id, session_id)
+    print(f"Session path: {session}\n")
+
+    for text in texts:
+        # Create a text input object
+        text_input = dialogflow.TextInput(text=text, language_code=language_code)
+
+        # Create a query input object
+        query_input = dialogflow.QueryInput(text=text_input)
+
+        # Detect intent
+        response = session_client.detect_intent(
+            request={"session": session, "query_input": query_input}
+        )
+
+        # Display the results
+        print("=" * 20)
+        print(f"Query text: {response.query_result.query_text}")
+        print(f"Detected intent: {response.query_result.intent.display_name} (confidence: {response.query_result.intent_detection_confidence})")
+        print(f"Fulfillment text: {response.query_result.fulfillment_text}\n")
+        #print(response.query_result)
 
 # ------------------- Example Usage ------------------- #
 
 if __name__ == "__main__":
     project_id = 'humanrobot'  # Update with your project ID
-
-    # Getters
-    IntList=list_intents(project_id)
-    get_intent(project_id,"523db2c8-b27d-4249-8b5f-6f5f0593f40c", "en")
-   
-
-'''update_intent(
-    project_id,
-    "e8d84166-a894-42bb-a7ae-13b248877017",
-    "Default Welcome Intent",
-    ["Hello!", "Hi robot!", "Hey, what can you do?", "Hello, I’m here!"],
-    [
-        "Hi there! I’m here to entertain and help you feel better! What would you like to do today?",
-        "Hello! How can I make your day more fun?",
-        "Hi! How are you doing?",
-        "Good day! What can I do for you today?"
-    ],
-    language_code='en'  )'''
+    
     
 
+
+    jokes = [
+    "Why did the math book look sad? Because it had too many problems!",
+    "What do you call cheese that's not yours? Nacho cheese!",
+    "Why don't scientists trust atoms? Because they make up everything!",
+    "Why did the computer go to the doctor? Because it had a virus!",
+    "What do you get when you cross a snowman and a shark? Frostbite!",
+    "Why did the cookie go to the hospital? Because he felt crummy!",
+    "What did one volcano say to the other? I lava you!",
+    "Why did the teddy bear say no to dessert? Because she was already stuffed!",
+    "How do you make a tissue dance? Put a little boogie in it!",
+    "Why did the kid bring a ladder to school? Because he wanted to go to high school!",
+    "What do you call a sleeping bull? A bulldozer!",
+    "Why are ghosts bad liars? Because you can see right through them!",
+    "What kind of tree fits in your hand? A palm tree!",
+    "Why did the bicycle fall over? Because it was two-tired!",
+    "What do you call a bear with no teeth? A gummy bear!",
+    "Why did the melon jump into the lake? It wanted to be a watermelon!",
+    "What do you get when you cross a fish and an elephant? Swimming trunks!",
+    "Why can't Elsa have a balloon? Because she will let it go!",
+    "What do you call an alligator in a vest? An investigator!",
+    "Why did the picture go to jail? Because it was framed!",
+    ]
+    stories = [
+    "The Little Red Balloon: Once upon a time, a little red balloon floated up into the sky, carrying a child's wish for adventure. As it drifted over mountains and oceans, it collected stories from around the world to bring back home.",
+    "The Brave Little Turtle: Tommy the turtle wanted to see the world beyond his pond. One day, he mustered up the courage to explore and discovered that being brave helped him make new friends.",
+    "The Magic Paintbrush: Lily found a magic paintbrush that brought her drawings to life. She painted gardens full of flowers and shared them with everyone in her town, spreading joy and color.",
+    "The Lost Puppy: Max, a playful puppy, got lost in the city. With the help of some friendly animals, he found his way back home, learning the importance of listening to his parents.",
+    "The Friendly Dragon: In a village afraid of dragons, a young girl named Mia befriended a gentle dragon named Spark. Together, they showed everyone that friendship can overcome fear.",
+    "The Boy Who Loved Stars: Alex dreamed of touching the stars. Every night, he built a taller and taller ladder. Though he couldn't reach them, he realized that his dreams inspired others to look up and wonder.",
+    "The Talking Tree: Deep in the forest stood a tree that could talk. It shared stories of nature's wonders with a group of children, teaching them to appreciate and protect the environment.",
+    "The Kind Robot: A robot named Bolt wanted to understand human emotions. By helping people in small ways every day, Bolt learned that kindness is the key to happiness.",
+    "The Invisible Cloak: Emma found an invisible cloak that made her unseen. She used it to help others without them knowing, discovering that doing good deeds is its own reward.",
+    "The Time-Traveling Sandwich: Jake made a sandwich so delicious that it transported him back in time. He met his grandparents as children and learned valuable lessons about family.",]
+
+    songs = [
+    "Twinkle Twinkle Little Star",
+    "You Are My Sunshine",
+    "Hakuna Matata",  # From The Lion King
+    "Let It Go",  # From Frozen
+    "The Wheels on the Bus",
+    "If You're Happy and You Know It",
+    "Baby Shark",
+    "Somewhere Over the Rainbow",
+    "Can't Stop the Feeling!",  # By Justin Timberlake (from Trolls)
+    "How Far I'll Go",  # From Moana
+    "Under the Sea",  # From The Little Mermaid
+    "A Whole New World",  # From Aladdin
+    "Happy",  # By Pharrell Williams
+    "Roar",  # By Katy Perry
+    "Count on Me",  # By Bruno Mars
+    "Try Everything",  # By Shakira (from Zootopia)
+    "You've Got a Friend in Me",  # From Toy Story
+    "Do-Re-Mi",  # From The Sound of Music
+    "What a Wonderful World",  # By Louis Armstrong
+    "Three Little Birds",  # By Bob Marley
+    ]
+
+    parameter=[{
+        'display_name': 'entertainment_type',
+        'entity_type_display_name': '@Entertainment_Type',
+        'mandatory': True,
+        'prompts':["Would you like a joke, a story, or a song?"],
+        'default_value' : '',
+        'value':'$entertainment_type'
+    }]
+
+    #IntList=list_intents(project_id)
+    #list_entity_types(project_id)
+    #detect_intent_texts(project_id,session_id,["Can you tell me a joke?"], language_code)
+    #update_intent_contexts("projects/humanrobot/agent/intents/e8d84166-a894-42bb-a7ae-13b248877017",project_id,[],[("request_of_entertainment_joke", 2),("request_of_entertainment_story", 2),("request_of_entertainment_song", 2)])
+    #update_intent(project_id,"257456c1-1476-4164-8d20-ef65b157690c", "Awaiting Request of Entertainment", ["I want to hear a joke.","Tell me a story.","Sing me a song.","A joke, please.","I'd like a story.","Can you sing?"], ["yeah sure here a $entertainment_type for you:"])
+
+    #update_intent_parameters("projects/humanrobot/agent/intents/257456c1-1476-4164-8d20-ef65b157690c", [] )
+    
+    #create_followup_intent_with_input_context(project_id,"Awaiting Request of Entertainment", ["I want to hear a joke.","Tell me a story.","Sing me a song.","A joke, please.","I'd like a story.","Can you sing?"],[], "awaiting_request_of_entertainment", parameter )
+    
+
+    #delete_intent(project_id,"257456c1-1476-4164-8d20-ef65b157690c")
+    #get_intent(project_id,"e8d84166-a894-42bb-a7ae-13b248877017")
+    
+    
+    
+#("request_of_entertainment_joke", 2),("request_of_entertainment_story", 2),("request_of_entertainment_song", 2)
    
