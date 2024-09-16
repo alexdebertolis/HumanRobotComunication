@@ -5,6 +5,10 @@ import os
 from google.cloud import dialogflow
 from google.oauth2 import service_account
 from google.protobuf import field_mask_pb2
+import serial
+import time
+from google.protobuf.json_format import MessageToDict
+
 session_id = '123'  # This can be any unique identifier
 language_code = 'en-US'
 project_id= "humanrobot"
@@ -613,15 +617,147 @@ def detect_intent_texts(project_id, session_id, texts, language_code):
         print(f"Query text: {response.query_result.query_text}")
         print(f"Detected intent: {response.query_result.intent.display_name} (confidence: {response.query_result.intent_detection_confidence})")
         print(f"Fulfillment text: {response.query_result.fulfillment_text}\n")
+        return response.query_result.intent.display_name
         #print(response.query_result)
 
+def detect_intent_with_texttospeech_response(
+    project_id, session_id, texts, language_code):
+        
+    """Returns the result of detect intent with texts as inputs and includes
+    the response in an audio format.
+
+    Using the same `session_id` between requests allows continuation
+    of the conversation."""
+    from google.cloud import dialogflow
+
+    session_client = dialogflow.SessionsClient()
+
+    session_path = session_client.session_path(project_id, session_id)
+    print("Session path: {}\n".format(session_path))
+
+    for text in texts:
+        text_input = dialogflow.TextInput(text=text, language_code=language_code)
+
+        query_input = dialogflow.QueryInput(text=text_input)
+
+        # Set the query parameters with sentiment analysis
+        output_audio_config = dialogflow.OutputAudioConfig(
+            audio_encoding=dialogflow.OutputAudioEncoding.OUTPUT_AUDIO_ENCODING_LINEAR_16
+        )
+
+        request = dialogflow.DetectIntentRequest(
+            session=session_path,
+            query_input=query_input,
+            output_audio_config=output_audio_config,
+        )
+        response = session_client.detect_intent(request=request)
+
+        print("=" * 20)
+        print("Query text: {}".format(response.query_result.query_text))
+        print(
+            "Detected intent: {} (confidence: {})\n".format(
+                response.query_result.intent.display_name,
+                response.query_result.intent_detection_confidence,
+            )
+        )
+        print("Fulfillment text: {}\n".format(response.query_result.fulfillment_text))
+        # The response's audio_content is binary.
+        with open("output.wav", "wb") as out:
+            out.write(response.output_audio)
+            print('Audio content written to file "output.wav"')
+
+
+def detect_intent_and_act(project_id, session_id, text, language_code, action_map, **kwargs):
+    """
+    Detects the intent of the user's input text using Dialogflow and performs
+    the corresponding action based on the provided intent-action mapping.
+
+    Parameters:
+    - project_id: Your Google Cloud project ID.
+    - session_id: A unique identifier for the session.
+    - text: The user's input text.
+    - language_code: The language code of the agent (e.g., 'en' for English).
+    - action_map: A dictionary mapping intent names to action functions.
+    - **kwargs: Additional arguments to pass to action functions (e.g., serial connection).
+    """
+    session_client = dialogflow.SessionsClient()
+    session = session_client.session_path(project_id, session_id)
+
+    # Create a text input
+    text_input = dialogflow.TextInput(text=text, language_code=language_code)
+
+    # Create a query input
+    query_input = dialogflow.QueryInput(text=text_input)
+
+    # Detect the intent
+    response = session_client.detect_intent(
+        request={"session": session, "query_input": query_input}
+    )
+
+        # Extract query result
+    query_result = response.query_result
+    intent_name = query_result.intent.display_name
+    fulfillment_text = query_result.fulfillment_text
+
+    # Convert parameters to a dictionary
+    parameters = dict(query_result.parameters)
+
+    print(f"User: {text}")
+    print(f"Detected intent: {intent_name}")
+    print(f"Fulfillment text: {fulfillment_text}")
+    print(f"Parameters: {parameters}")
+
+    # Find the action associated with the intent
+    action_function = action_map.get(intent_name)
+
+    if action_function:
+        # Execute the action function, passing necessary parameters
+        action_function(fulfillment_text, parameters, **kwargs)
+    else:
+        print(f"No action defined for intent '{intent_name}'.")
+
+
+     # ------------------- Arduino Connections------------------- #       
+def connect_to_arduino(port, baudrate=9600, timeout=1):
+    try:
+        ser = serial.Serial(port, baudrate, timeout=timeout)
+        time.sleep(2)  # Wait for the connection to establish
+        print(f"Connected to Arduino on port {port}")
+        return ser
+    except serial.SerialException as e:
+        print(f"Error connecting to Arduino: {e}")
+        return None
+
+def send_command(ser, command):
+    if ser:
+        ser.write((command + '\n').encode())
+        # Read the response from Arduino
+        response = ser.readline().decode().strip()
+        if response:
+            print(f"Arduino says: {response}")
+    else:
+        print("Serial connection not established.")
+# ------------------- Actions ------------------- #
+
+def action_turn_on_light(fulfillment_text, parameters, **kwargs):
+    ser = kwargs.get('ser')  # Get the serial connection from kwargs
+    send_command(ser, "LED_ON")
+    print("Action: Turned on the light.")
+
+def action_turn_off_light(fulfillment_text, parameters, **kwargs):
+    ser = kwargs.get('ser')
+    send_command(ser, "LED_OFF")
+    print("Action: Turned off the light.")
 # ------------------- Example Usage ------------------- #
 
 if __name__ == "__main__":
     project_id = 'humanrobot'  # Update with your project ID
     
-    
-
+    action_map = {
+        "turn_on-light": action_turn_on_light,
+        "turn-off-lights": action_turn_off_light,
+       
+    }
 
     jokes = [
     "Why did the math book look sad? Because it had too many problems!",
@@ -688,21 +824,31 @@ if __name__ == "__main__":
         'default_value' : '',
         'value':'$entertainment_type'
     }]
+    arduino_port = '/dev/cu.usbmodem1422101'  # For Mac/Linux
+    # arduino_port = 'COM3'  # For Windows
+
+    ser = connect_to_arduino(arduino_port)
+
+    # Send commands to the Arduino
+    #send_command(ser, "LED_OFF")
 
     #IntList=list_intents(project_id)
     #list_entity_types(project_id)
-    #detect_intent_texts(project_id,session_id,["Can you tell me a joke?"], language_code)
+    #detect_intent_texts(project_id,session_id,["Hi"], language_code)
+    detect_intent_and_act(project_id,session_id,"hi","en",action_map,ser=ser)
     #update_intent_contexts("projects/humanrobot/agent/intents/e8d84166-a894-42bb-a7ae-13b248877017",project_id,[],[("request_of_entertainment_joke", 2),("request_of_entertainment_story", 2),("request_of_entertainment_song", 2)])
     #update_intent(project_id,"257456c1-1476-4164-8d20-ef65b157690c", "Awaiting Request of Entertainment", ["I want to hear a joke.","Tell me a story.","Sing me a song.","A joke, please.","I'd like a story.","Can you sing?"], ["yeah sure here a $entertainment_type for you:"])
-
+    #detect_intent_with_texttospeech_response(project_id,session_id, ["Tell me a story"], "en")
     #update_intent_parameters("projects/humanrobot/agent/intents/257456c1-1476-4164-8d20-ef65b157690c", [] )
     
     #create_followup_intent_with_input_context(project_id,"Awaiting Request of Entertainment", ["I want to hear a joke.","Tell me a story.","Sing me a song.","A joke, please.","I'd like a story.","Can you sing?"],[], "awaiting_request_of_entertainment", parameter )
-    
+    #create_intent(project_id, "turn_on-light", ["Can you turn on the light?", "turn the light on"], ["Sure, i will turn the light on", "Sure here you are"])
+    #create_intent(project_id,"turn-off-lights", ["Can you turn the light off", "Turn the light off"], ["Sure boss", "Done"])
 
     #delete_intent(project_id,"257456c1-1476-4164-8d20-ef65b157690c")
     #get_intent(project_id,"e8d84166-a894-42bb-a7ae-13b248877017")
-    
+    #if ser:
+    #    ser.close()
     
     
 #("request_of_entertainment_joke", 2),("request_of_entertainment_story", 2),("request_of_entertainment_song", 2)
