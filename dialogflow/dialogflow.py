@@ -12,7 +12,7 @@ from google.protobuf.json_format import MessageToDict
 session_id = '123'  # This can be any unique identifier
 language_code = 'en-US'
 project_id= "humanrobot"
-credentials = service_account.Credentials.from_service_account_file('/Users/alexdebertolis/Desktop/Human robot + arduino/humanrobot-2f6e43c1a852.json')
+credentials = service_account.Credentials.from_service_account_file('/Users/alexdebertolis/Desktop/Human robot + arduino/humanrobot-2f6e43c1a852.json') #path to your credential file
  # Create a session client
 session_client = dialogflow.SessionsClient(credentials=credentials)
 session = session_client.session_path(project_id, session_id)
@@ -24,43 +24,6 @@ def get_agent_path(project_id):
     client = dialogflow.AgentsClient(credentials=credentials)
     return client.agent_path(project_id)
 
-def transcribe_audio(audio_path):
-   
-    
-    # Read audio file
-    with open(audio_path, 'rb') as audio_file:
-        input_audio = audio_file.read()
-
-    # Build the audio config and query input
-    audio_config = dialogflow.InputAudioConfig(
-        audio_encoding=dialogflow.AudioEncoding.AUDIO_ENCODING_LINEAR_16,
-        language_code=language_code
-    )
-    query_input = dialogflow.QueryInput(audio_config=audio_config)
-
-    # Create the request
-    request = dialogflow.DetectIntentRequest(
-        session=session,
-        query_input=query_input,
-        input_audio=input_audio
-    )
-
-    # Make the request
-    response = session_client.detect_intent(request=request)
-
-    # Get and print the response
-    print("Query text:", response.query_result.query_text)
-    print("Detected intent:", response.query_result.intent.display_name)
-    print("Confidence:", response.query_result.intent_detection_confidence)
-    print("Fulfillment text:", response.query_result.fulfillment_text)
-
-import os
-from google.cloud import dialogflow_v2 as dialogflow
-
-# Helper function to get the agent path
-def get_agent_path(project_id):
-    client = dialogflow.AgentsClient()
-    return client.agent_path(project_id)
 
 # ------------------- GETTER FUNCTIONS ------------------- #
 
@@ -717,6 +680,143 @@ def detect_intent_and_act(project_id, session_id, text, language_code, action_ma
         print(f"No action defined for intent '{intent_name}'.")
 
 
+def transcribe_audio_and_act(project_id, session_id, audio_path, language_code, action_map, **kwargs):
+    """
+    Transcribes audio to text, detects the intent using Dialogflow, and performs
+    the corresponding action based on the provided intent-action mapping.
+
+    Parameters:
+    - project_id: Your Google Cloud project ID.
+    - session_id: A unique identifier for the session.
+    - audio_path: Path to the audio file to be transcribed and processed.
+    - language_code: The language code of the agent (e.g., 'en' for English).
+    - action_map: A dictionary mapping intent names to action functions.
+    - **kwargs: Additional arguments to pass to action functions (e.g., serial connection).
+    """
+
+    # Initialize the Dialogflow session client
+    session_client = dialogflow.SessionsClient()
+    session = session_client.session_path(project_id, session_id)
+
+    # Read the audio file
+    with open(audio_path, 'rb') as audio_file:
+        input_audio = audio_file.read()
+
+    # Build the audio config (assuming the audio is WAV, LINEAR16 encoded)
+    audio_config = dialogflow.InputAudioConfig(
+        audio_encoding=dialogflow.AudioEncoding.AUDIO_ENCODING_LINEAR_16,
+        language_code=language_code
+    )
+
+    # Create the query input with the audio config
+    query_input = dialogflow.QueryInput(audio_config=audio_config)
+
+    # Create the DetectIntentRequest with the audio
+    request = dialogflow.DetectIntentRequest(
+        session=session,
+        query_input=query_input,
+        input_audio=input_audio
+    )
+
+    # Send the request to Dialogflow
+    response = session_client.detect_intent(request=request)
+
+    # Extract query result (transcribed text)
+    query_result = response.query_result
+    transcribed_text = query_result.query_text
+    intent_name = query_result.intent.display_name
+    fulfillment_text = query_result.fulfillment_text
+
+    # Convert parameters to a dictionary
+    parameters = dict(query_result.parameters)
+
+    # Log the details
+    print(f"Transcribed Text: {transcribed_text}")
+    print(f"Detected Intent: {intent_name}")
+    print(f"Fulfillment Text: {fulfillment_text}")
+    print(f"Parameters: {parameters}")
+
+    # Find the action associated with the intent
+    action_function = action_map.get(intent_name)
+
+    if action_function:
+        # Execute the action function, passing necessary parameters
+        action_function(fulfillment_text, parameters, **kwargs)
+    else:
+        print(f"No action defined for intent '{intent_name}'.")
+
+def transcribe_audio_detect_intent_and_respond(
+    project_id, session_id, audio_path, language_code, action_map, **kwargs
+):
+    """
+    Transcribes an audio file to text, detects intent using Dialogflow, performs
+    the corresponding action, and generates a response in both text and audio.
+
+    Parameters:
+    - project_id: Google Cloud project ID.
+    - session_id: Unique identifier for the session.
+    - audio_path: Path to the audio file for transcription.
+    - language_code: The language code of the Dialogflow agent (e.g., 'en').
+    - action_map: A dictionary mapping intent names to action functions.
+    - **kwargs: Additional arguments for actions (e.g., serial connection to Arduino).
+    """
+    # Initialize the Dialogflow session client
+    session_client = dialogflow.SessionsClient()
+    session_path = session_client.session_path(project_id, session_id)
+
+    # Read the audio file
+    with open(audio_path, 'rb') as audio_file:
+        input_audio = audio_file.read()
+
+    # Audio input configuration for Dialogflow (assuming LINEAR16 WAV format)
+    audio_config = dialogflow.InputAudioConfig(
+        audio_encoding=dialogflow.AudioEncoding.AUDIO_ENCODING_LINEAR_16,
+        language_code=language_code
+    )
+
+    # Output audio configuration for TTS response (e.g., OUTPUT_AUDIO_ENCODING_LINEAR_16)
+    output_audio_config = dialogflow.OutputAudioConfig(
+        audio_encoding=dialogflow.OutputAudioEncoding.OUTPUT_AUDIO_ENCODING_LINEAR_16
+    )
+
+    # Create the DetectIntentRequest with the audio and the output audio config
+    request = dialogflow.DetectIntentRequest(
+        session=session_path,
+        query_input=dialogflow.QueryInput(audio_config=audio_config),
+        input_audio=input_audio,
+        output_audio_config=output_audio_config
+    )
+
+    # Detect the intent
+    response = session_client.detect_intent(request=request)
+
+    # Extract query result
+    query_result = response.query_result
+    transcribed_text = query_result.query_text
+    intent_name = query_result.intent.display_name
+    fulfillment_text = query_result.fulfillment_text
+    parameters = MessageToDict(query_result.parameters)
+
+    # Log the transcribed text, detected intent, and fulfillment text
+    print(f"Transcribed Text: {transcribed_text}")
+    print(f"Detected Intent: {intent_name}")
+    print(f"Fulfillment Text: {fulfillment_text}")
+    print(f"Parameters: {parameters}")
+
+    # Perform the action based on the detected intent
+    action_function = action_map.get(intent_name)
+    if action_function:
+        # Execute the corresponding action, passing parameters
+        action_function(fulfillment_text, parameters, **kwargs)
+    else:
+        print(f"No action defined for intent '{intent_name}'.")
+
+    # Save the audio response (output_audio) from Dialogflow as a WAV file
+    audio_output_file = "response_output.wav"
+    with open(audio_output_file, "wb") as audio_file:
+        audio_file.write(response.output_audio)
+        print(f'Audio content written to "{audio_output_file}"')
+
      # ------------------- Arduino Connections------------------- #       
 def connect_to_arduino(port, baudrate=9600, timeout=1):
     try:
@@ -751,7 +851,7 @@ def action_turn_off_light(fulfillment_text, parameters, **kwargs):
 # ------------------- Example Usage ------------------- #
 
 if __name__ == "__main__":
-    project_id = 'humanrobot'  # Update with your project ID
+
     
     action_map = {
         "turn_on-light": action_turn_on_light,
@@ -834,8 +934,8 @@ if __name__ == "__main__":
 
     #IntList=list_intents(project_id)
     #list_entity_types(project_id)
-    #detect_intent_texts(project_id,session_id,["Hi"], language_code)
-    detect_intent_and_act(project_id,session_id,"hi","en",action_map,ser=ser)
+    detect_intent_texts(project_id,session_id,["Hi"], language_code)
+    #detect_intent_and_act(project_id,session_id,"can you turn off the light?","en",action_map,ser=ser)
     #update_intent_contexts("projects/humanrobot/agent/intents/e8d84166-a894-42bb-a7ae-13b248877017",project_id,[],[("request_of_entertainment_joke", 2),("request_of_entertainment_story", 2),("request_of_entertainment_song", 2)])
     #update_intent(project_id,"257456c1-1476-4164-8d20-ef65b157690c", "Awaiting Request of Entertainment", ["I want to hear a joke.","Tell me a story.","Sing me a song.","A joke, please.","I'd like a story.","Can you sing?"], ["yeah sure here a $entertainment_type for you:"])
     #detect_intent_with_texttospeech_response(project_id,session_id, ["Tell me a story"], "en")
