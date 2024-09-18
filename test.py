@@ -1,3 +1,15 @@
+# This Python code is a small example that uses the laptop's microphone 
+# to capture audio, convert it to text, and save the audio file for debugging.
+# If you experience problems with the code, try changing the mic_index line, 
+# as this line controls which microphone is used. 
+# Some computers might have multiple microphone inputs. 
+
+# for the index try the next code
+# import speech_recognition as sr
+# for index, name in enumerate(sr.Microphone.list_microphone_names()):
+#     print(f"Microphone {index}: {name}")
+
+
 import speech_recognition as sr
 import noisereduce as nr
 import numpy as np
