@@ -1,0 +1,301 @@
+Key Features of the Script:
+
+Getters:
+- list_intents: List all intents in your Dialogflow agent.
+- get_intent: Retrieve a specific intent by its ID.
+- list_entity_types: List all entity types in the agent.
+- get_entity_type: Get details for a specific entity type.
+- list_entities_in_entity_type: List all entities for a specific entity type.
+
+Setters:
+- create_intent: Create a new intent with training phrases and responses.
+- create_entity_type: Create a new entity type (with KIND_MAP).
+- create_entity: Add entities (with synonyms) to an entity type.
+- update_intent: Modify an existing intent (name, training phrases, responses).
+- update_entity_type: Modify an entity type’s display name.
+- delete_intent: Delete an intent by its ID.
+- delete_entity_type: Delete an entity type by its ID.
+- delete_entity: Delete a specific entity from an entity type.
+
+
+[name: "projects/humanrobot/agent/intents/10971206-dfbf-48d2-9064-a78d5f901e9e"
+
+display_name: "turn-off-light"
+priority: 500000
+training_phrases {
+  name: "a32a134d-9107-4c0b-9a09-0a49ba8c6185"
+  type_: EXAMPLE
+  parts {
+    text: "Can you turn off the light? "
+  }
+}
+training_phrases {
+  name: "b245a168-b279-4fec-a8da-056d04625240"
+  type_: EXAMPLE
+  parts {
+    text: "turn the light off"
+  }
+}
+messages {
+  text {
+    text: "Sure, i will turn the light on"
+    text: "Sure here you are"
+  }
+}
+, name: "projects/humanrobot/agent/intents/3aea8d7f-40cb-424b-84c8-2d1973d32d9d"
+display_name: "fallback_responses"
+priority: 500000
+is_fallback: true
+action: "input.unknown"
+messages {
+  text {
+    text: "I didn\'t get that. Can you say it again?"
+    text: "I missed what you said. What was that?"
+    text: "Sorry, could you say that again?"
+    text: "Sorry, can you say that again?"
+    text: "Can you say that again?"
+    text: "Sorry, I didn\'t get that. Can you rephrase?"
+    text: "Sorry, what was that?"
+    text: "One more time?"
+    text: "What was that?"
+    text: "Say that one more time?"
+    text: "I didn\'t get that. Can you repeat?"
+    text: "I missed that, say that again?"
+  }
+}
+, name: "projects/humanrobot/agent/intents/523db2c8-b27d-4249-8b5f-6f5f0593f40c"
+display_name: "jokes"
+priority: 500000
+input_context_names: "projects/humanrobot/agent/sessions/-/contexts/request_of_entertainment_joke"
+training_phrases {
+  name: "fcf1b377-e867-4df1-b8b7-1211c0deebac"
+  type_: EXAMPLE
+  parts {
+    text: "I want to hear a joke."
+  }
+}
+training_phrases {
+  name: "88555f27-9387-4b13-b755-c9987d69f8f2"
+  type_: EXAMPLE
+  parts {
+    text: "Tell me a joke."
+  }
+}
+, name: "projects/humanrobot/agent/intents/5310c361-935b-4a89-81e5-f94fe00bbc03"
+display_name: "stories"
+priority: 500000
+input_context_names: "projects/humanrobot/agent/sessions/-/contexts/request_of_entertainment_story"
+training_phrases {
+  name: "599aab66-ede0-4b9d-8c7a-8c70336a7431"
+  type_: EXAMPLE
+  parts {
+    text: "I\'d like a story."
+  }
+}
+training_phrases {
+  name: "c0d4b781-f097-46f2-8988-53ac4eef5394"
+  type_: EXAMPLE
+  parts {
+    text: "Tell me a story."
+  }
+}
+training_phrases {
+  name: "e0002ec7-416f-48be-9872-21e2892d5268"
+  type_: EXAMPLE
+  parts {
+    text: "I would like to hear a story"
+  }
+}
+, name: "projects/humanrobot/agent/intents/9469d9af-e952-49d9-867b-63844678bd30"
+display_name: "songs"
+priority: 500000
+input_context_names: "projects/humanrobot/agent/sessions/-/contexts/request_of_entertainment_song"
+training_phrases {
+  name: "c648adf9-b9bb-457c-9244-fed9cb464eef"
+  type_: EXAMPLE
+  parts {
+    text: "Can you play a happy song"
+  }
+}
+training_phrases {
+  name: "8e20c4b2-7ebe-4d34-b621-c55bdd145537"
+  type_: EXAMPLE
+  parts {
+    text: "Can you play a song that relax me"
+  }
+}
+training_phrases {
+  name: "313ffaba-46bc-4951-911b-d25c891e1199"
+  type_: EXAMPLE
+  parts {
+    text: "can you play a crazy song"
+  }
+}
+training_phrases {
+  name: "8ff216fe-f687-4622-86f3-daf3e826d22f"
+  type_: EXAMPLE
+  parts {
+    text: "can i hear a song that make me dance"
+  }
+}
+training_phrases {
+  name: "1c482d0c-8632-4f1f-b9e5-69dc9919921b"
+  type_: EXAMPLE
+  parts {
+    text: "Can i hear a chill song"
+  }
+}
+training_phrases {
+  name: "ae8487e4-bb1a-407f-8112-5fc08710193e"
+  type_: EXAMPLE
+  parts {
+    text: "Could you make me listen a energetic song"
+  }
+}
+training_phrases {
+  name: "ac94d493-a4fc-4c7c-aecf-fd1c518f9cd6"
+  type_: EXAMPLE
+  parts {
+    text: "I want to hear a happy song"
+  }
+}
+training_phrases {
+  name: "777857f6-9571-41ca-9efe-86a7cffd7b2e"
+  type_: EXAMPLE
+  parts {
+    text: "i want to hear a relaxing song"
+  }
+}
+parameters {
+  name: "8d28d0e9-0dfc-45c7-95c3-e6f3ade97b28"
+  display_name: "song_type"
+  value: "$song_type"
+  entity_type_display_name: "@song_type"
+}
+, name: "projects/humanrobot/agent/intents/9ed95324-12c0-4116-9901-af5bd6c73aeb"
+display_name: "detect_emotions"
+priority: 500000
+training_phrases {
+  name: "7d99ef1c-5373-41d2-81b2-4b91a8fc098b"
+  type_: EXAMPLE
+  parts {
+    text: "Which emotions you have?"
+  }
+}
+training_phrases {
+  name: "b7cb1e8c-e971-4af3-a8da-504c03ad3b14"
+  type_: EXAMPLE
+  parts {
+    text: "Can you get upset?"
+  }
+}
+training_phrases {
+  name: "ab671ba6-4534-418b-b5b4-4e0acd334f5a"
+  type_: EXAMPLE
+  parts {
+    text: "Do you feel something?"
+  }
+}
+training_phrases {
+  name: "e14849c1-8abd-48f2-b7b8-00645739aede"
+  type_: EXAMPLE
+  parts {
+    text: "Do you have emotions?"
+  }
+}
+parameters {
+  name: "972e9190-2ecf-4ec9-9d37-460f5bdbb1bf"
+  display_name: "song_type"
+  value: "$song_type"
+  entity_type_display_name: "@Song_type"
+}
+messages {
+  text {
+    text: "I am a robot I don\'t feel emotions or other things like you, but I can help give examples of how emotions can be"
+    text: "Sad"
+    text: "Happy"
+    text: "Angry"
+    text: "Normal"
+  }
+}
+messages {
+  text {
+    text: "Sure here a $song_type song"
+  }
+}
+, name: "projects/humanrobot/agent/intents/e8d84166-a894-42bb-a7ae-13b248877017"
+display_name: "welcome"
+priority: 500000
+events: "WELCOME"
+training_phrases {
+  name: "3ef61853-e63d-4516-80ae-a162cc6417d9"
+  type_: EXAMPLE
+  parts {
+    text: "Hello!"
+  }
+}
+training_phrases {
+  name: "e878354b-577b-413b-8c5f-1c3a2f5544d6"
+  type_: EXAMPLE
+  parts {
+    text: "Hi robot!"
+  }
+}
+training_phrases {
+  name: "e4b180e6-bde8-477f-8ee8-ececaee0272e"
+  type_: EXAMPLE
+  parts {
+    text: "Hey, what can you do?"
+  }
+}
+training_phrases {
+  name: "8fa69b3f-55b1-472d-9c63-cd2411e11e6b"
+  type_: EXAMPLE
+  parts {
+    text: "Hello, I’m here!"
+  }
+}
+action: "input.welcome"
+output_contexts {
+  name: "projects/humanrobot/agent/sessions/-/contexts/request_of_entertainment_joke"
+  lifespan_count: 2
+}
+output_contexts {
+  name: "projects/humanrobot/agent/sessions/-/contexts/request_of_entertainment_story"
+  lifespan_count: 2
+}
+output_contexts {
+  name: "projects/humanrobot/agent/sessions/-/contexts/request_of_entertainment_song"
+  lifespan_count: 2
+}
+messages {
+  text {
+    text: "Hi there! I’m here to entertain and help you feel better! What would you like to do today? I can tell you a joke or a story or even a song!"
+    text: "Hello! How can I make your day more fun? I can tell you a joke, play a game, or sing a song!"
+    text: "Good day! What can I do for you today? I can tell you a joke, play a game, or sing a song!"
+  }
+}
+, name: "projects/humanrobot/agent/intents/ee91ffa3-e820-44e7-8d6c-870d1e872970"
+display_name: "turn-on-light"
+priority: 500000
+training_phrases {
+  name: "ed800f46-52f6-4e40-85c1-7ab3e34f2dcb"
+  type_: EXAMPLE
+  parts {
+    text: "Can you turn on the light? "
+  }
+}
+training_phrases {
+  name: "d57c4fdf-2711-43cd-b09e-561849685fa1"
+  type_: EXAMPLE
+  parts {
+    text: "turn the light on"
+  }
+}
+messages {
+  text {
+    text: "Sure boss"
+    text: "Done"
+  }
+}
+]
