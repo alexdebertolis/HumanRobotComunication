@@ -17,9 +17,7 @@ Setters:
 - delete_entity_type: Delete an entity type by its ID.
 - delete_entity: Delete a specific entity from an entity type.
 
-
-[name: "projects/humanrobot/agent/intents/10971206-dfbf-48d2-9064-a78d5f901e9e"
-
+name: "projects/humanrobot/agent/intents/10971206-dfbf-48d2-9064-a78d5f901e9e"
 display_name: "turn-off-light"
 priority: 500000
 training_phrases {
@@ -171,57 +169,6 @@ parameters {
   display_name: "song_type"
   value: "$song_type"
   entity_type_display_name: "@song_type"
-}
-, name: "projects/humanrobot/agent/intents/9ed95324-12c0-4116-9901-af5bd6c73aeb"
-display_name: "detect_emotions"
-priority: 500000
-training_phrases {
-  name: "7d99ef1c-5373-41d2-81b2-4b91a8fc098b"
-  type_: EXAMPLE
-  parts {
-    text: "Which emotions you have?"
-  }
-}
-training_phrases {
-  name: "b7cb1e8c-e971-4af3-a8da-504c03ad3b14"
-  type_: EXAMPLE
-  parts {
-    text: "Can you get upset?"
-  }
-}
-training_phrases {
-  name: "ab671ba6-4534-418b-b5b4-4e0acd334f5a"
-  type_: EXAMPLE
-  parts {
-    text: "Do you feel something?"
-  }
-}
-training_phrases {
-  name: "e14849c1-8abd-48f2-b7b8-00645739aede"
-  type_: EXAMPLE
-  parts {
-    text: "Do you have emotions?"
-  }
-}
-parameters {
-  name: "972e9190-2ecf-4ec9-9d37-460f5bdbb1bf"
-  display_name: "song_type"
-  value: "$song_type"
-  entity_type_display_name: "@Song_type"
-}
-messages {
-  text {
-    text: "I am a robot I don\'t feel emotions or other things like you, but I can help give examples of how emotions can be"
-    text: "Sad"
-    text: "Happy"
-    text: "Angry"
-    text: "Normal"
-  }
-}
-messages {
-  text {
-    text: "Sure here a $song_type song"
-  }
 }
 , name: "projects/humanrobot/agent/intents/e8d84166-a894-42bb-a7ae-13b248877017"
 display_name: "welcome"
