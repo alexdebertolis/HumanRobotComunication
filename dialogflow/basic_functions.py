@@ -1,19 +1,24 @@
 
 
 
-import os
+
 from pydub import AudioSegment
 from google.cloud import dialogflow
 from google.oauth2 import service_account
 from google.protobuf import field_mask_pb2
 import serial
 import time
+import random
 from google.protobuf.json_format import MessageToDict
+import speech_recognition as sr
+import noisereduce as nr
+import numpy as np
+import wave
 
 session_id = '123'  # This can be any unique identifier
-language_code = 'en-US'
+language_code = 'en'
 project_id= "humanrobot"
-credentials = service_account.Credentials.from_service_account_file('/Users/alexdebertolis/Desktop/humanrobot-2f6e43c1a852.json')
+credentials = service_account.Credentials.from_service_account_file('/Users/alexdebertolis/Desktop/Human robot + arduino/humanrobot-2f6e43c1a852.json')
  # Create a session client
 session_client = dialogflow.SessionsClient(credentials=credentials)
 session = session_client.session_path(project_id, session_id)
@@ -26,13 +31,15 @@ def get_agent_path(project_id):
     return client.agent_path(project_id)
 
 
+        
+
 # ------------------- GETTER FUNCTIONS ------------------- #
 
 # Get all intents
 def list_intents(project_id):
     client = dialogflow.IntentsClient(credentials=credentials)
     parent = get_agent_path(project_id)
-    intents = client.list_intents(request={"parent": parent})
+    intents = client.list_intents(request={"parent": parent, "intent_view":dialogflow.IntentView.INTENT_VIEW_FULL})
     intList=[]
     for intent in intents:
         intList.append(intent)
@@ -695,6 +702,7 @@ def transcribe_audio_and_act(
     - action_map: A dictionary mapping intent names to action functions.
     - **kwargs: Additional arguments for actions (e.g., serial connection to Arduino).
     """
+    
 
     # Convert stereo audio to mono
     mono_audio_path = "mono_audio.wav"  # Temporary file for mono audio
@@ -959,6 +967,8 @@ def detect_text_intent_with_sentiment_and_act(project_id, session_id, text, lang
     print(f"Sentiment Score: {sentiment.score, }, Magnitude: {sentiment.magnitude}")
     print(f"Parameters: {parameters}")
 
+    play_response_for_intent(intent_name)
+
     # Perform the action based on the detected intent
     action_function = action_map.get(intent_name)
     if action_function:
@@ -976,6 +986,48 @@ def action_turn_on_light(fulfillment_text, parameters, **kwargs):
         print(f"Arduino says: {response}")
     else:
         print("Action: Turned on the light but no serial connection established.")
+        
+def audio_input():
+
+    mic_index = 3  # Index of the microphone you want to use
+    recognizer = sr.Recognizer()
+
+    with sr.Microphone(device_index=mic_index) as source:
+        print("Adjusting for ambient noise, please wait a few seconds...")
+        recognizer.adjust_for_ambient_noise(source, duration=2)  # Increase adjustment time
+        print("Say something now:")
+
+        # Capture the audio
+        audio = recognizer.listen(source, timeout=10, phrase_time_limit=10)
+        print("Audio captured. Duration:", len(audio.get_raw_data()) / source.SAMPLE_RATE, "seconds")
+
+        # Convert audio to a raw format (array of numbers)
+        audio_data = np.frombuffer(audio.get_raw_data(), np.int16)
+
+        # Apply noise reduction
+        reduced_noise_audio = nr.reduce_noise(y=audio_data, sr=source.SAMPLE_RATE)
+
+        # Save the reduced noise audio to a .wav file for debugging
+        with wave.open("reduced_audio.wav", "wb") as f:
+            f.setnchannels(1)  # Stereo: 2, Mono: 1
+            f.setsampwidth(2)  # Sample size in bytes
+            f.setframerate(source.SAMPLE_RATE)
+            f.writeframes(reduced_noise_audio.tobytes())  # Convert the array to bytes and save it
+
+        try:
+            # Use recognizer to convert the audio to text
+            text = recognizer.recognize_google(audio, language=language_code)
+            print("Transcription: " + text)
+            
+
+            # Process the recognized text for intent detection
+            detect_text_intent_with_sentiment_and_act(project_id,session_id,text,language_code,action_map,ser=ser)
+        
+
+        except sr.UnknownValueError:
+            print("Google Speech Recognition could not understand audio")
+        except sr.RequestError as e:
+            print(f"Could not request results from Google Speech Recognition service; {e}")
 
 def convert_audio_to_mono(input_audio_path, output_audio_path):
     """
@@ -989,6 +1041,21 @@ def convert_audio_to_mono(input_audio_path, output_audio_path):
     mono_audio = audio.set_channels(1)  # Convert to mono
     mono_audio.export(output_audio_path, format="wav")
     print(f"Audio file {input_audio_path} converted to mono and saved as {output_audio_path}")
+
+def play_response_for_intent(intent_name):
+    if intent_name in audio_files:
+        response_files = audio_files[intent_name]
+        if isinstance(response_files, list):
+            # Select a random file if there are multiple options
+            file_to_play = random.choice(response_files)
+        else:
+            # Or just use the single file
+            file_to_play = response_files
+        print(f"Playing audio file: {file_to_play}")
+        # Here you would add your code to actually play the file, e.g., send it over serial to Arduino
+        ser.write((file_to_play + '\n').encode())
+    else:
+        print("No audio file mapped for this intent.")
 
 
 
@@ -1029,7 +1096,7 @@ if __name__ == "__main__":
 
     
     action_map = {
-        "turn_on-light": action_turn_on_light,
+        "turn-on-light": action_turn_on_light,
         "turn-off-lights": action_turn_off_light,
        
     }
@@ -1091,6 +1158,62 @@ if __name__ == "__main__":
     "Three Little Birds",  # By Bob Marley
     ]
 
+    audio_files = {
+    "emotion_anger": "robot_emotion_anger.wav",
+    "emotion_confused": "robot_emotion_confused.wav",
+    "emotion_disgust": ["robot_emotion_disgust.wav", "robot_emotion_disgust_2.wav"],
+    "emotion_fear": "robot_emotion_fear.wav",
+    "emotion_happy": ["robot_emotion_happy.wav", "robot_emotion_happy_2.wav"],
+    "emotion_ops": "robot_emotion_ops.wav",
+    "emotion_realization": "robot_emotion_realization.wav",
+    "emotion_sad": "robot_emotion_sad.wav",
+    "emotion_surprise": "robot_emotion_surprise.wav",
+    "emotion_thinking": "robot_emotion_thinking.wav",
+    "fallback_responses": [
+        "robot_fallback_1.wav",
+        "robot_fallback_2.wav",
+        "robot_fallback_3.wav",
+        "robot_fallback_4.wav",
+        "robot_fallback_6.wav",
+        "robot_fallback_7.wav"
+    ],
+    "jokes": [
+        "robot_joke_1.wav",
+        "robot_joke_2.wav",
+        "robot_joke_3.wav",
+        "robot_joke_4.wav",
+        "robot_joke_5.wav",
+        "robot_joke_6.wav",
+        "robot_joke_7.wav"
+    ],
+    "lullabies": [
+        "robot_nana-1.wav",
+        "robot_nana_2.wav",
+        "robot_nana_3.wav",
+        "robot_nana_4.wav"
+    ],
+    "gibberish": [
+        "robot_short_gibber.wav",
+        "robot_short_gibber_2.wav"
+    ],
+    "sleep_sounds": "robot_sleep.wav",
+    "songs": "robot_song_1.wav",
+    "stories": [
+        "robot_story_1.wav",
+        "robot_story_2.mp3",
+        "robot_story_4.wav",
+        "robot_story_5.wav",
+        "robot_story_6.wav",
+        "robot_story_7.wav",
+        "robot_story_8.wav",
+        "robot_story_9.wav"
+    ],
+    "yawns": [
+        "robot_yawn_1.wav",
+        "robot_yawn_2.wav"
+        ]
+    }
+
     parameter_entertainment=[{
         'display_name': 'entertainment_type',
         'entity_type_display_name': '@Entertainment_Type',
@@ -1114,14 +1237,16 @@ if __name__ == "__main__":
     # Send commands to the Arduino
     #send_command(ser, "LED_OFF")
 
-    #IntList=list_intents(project_id)
+    
+    #print(IntList)
     #list_entity_types(project_id=project_id)
     #list_entities_in_entity_type(project_id,"80d741a1-b69d-40d8-9251-5fcc3c857118")
 
 
-   
-    
-    #detect_text_intent_with_sentiment_and_act(project_id,session_id, "Hello i am super happy can you tell me a story", language_code, action_map, ser=ser)
+    #update_intent(project_id,"3aea8d7f-40cb-424b-84c8-2d1973d32d9d", "fallback_responses", None,None,False,False,language_code)
+    #IntList=list_intents(project_id)
+    #get_intent(project_id,"ee91ffa3-e820-44e7-8d6c-870d1e872970",language_code)
+    #detect_text_intent_with_sentiment_and_act(project_id,session_id, "nasfdasjo", language_code, action_map, ser=ser)
     #detect_intent_texts(project_id,session_id,["Hi"], language_code)
     #detect_intent_and_act(project_id,session_id,"Can you turn on the light","en",action_map,ser=ser)
     #transcribe_audio_and_act(project_id, session_id, "/Users/alexdebertolis/Desktop/record.wav",language_code, action_map, ser=ser)
