@@ -989,7 +989,8 @@ def action_turn_on_light(fulfillment_text, parameters, **kwargs):
         
 def audio_input():
 
-    mic_index = 3  # Index of the microphone you want to use
+
+    mic_index = 1  # Index of the microphone you want to use
     recognizer = sr.Recognizer()
 
     with sr.Microphone(device_index=mic_index) as source:
@@ -1022,6 +1023,7 @@ def audio_input():
 
             # Process the recognized text for intent detection
             detect_text_intent_with_sentiment_and_act(project_id,session_id,text,language_code,action_map,ser=ser)
+           
         
 
         except sr.UnknownValueError:
@@ -1053,7 +1055,7 @@ def play_response_for_intent(intent_name):
             file_to_play = response_files
         print(f"Playing audio file: {file_to_play}")
         # Here you would add your code to actually play the file, e.g., send it over serial to Arduino
-        ser.write((file_to_play + '\n').encode())
+        send_command(ser, file_to_play)
     else:
         print("No audio file mapped for this intent.")
 
@@ -1072,11 +1074,19 @@ def connect_to_arduino(port, baudrate=9600, timeout=1):
 
 def send_command(ser, command):
     if ser:
-        ser.write((command + '\n').encode())
-        # Read the response from Arduino
-        response = ser.readline().decode().strip()
-        if response:
-            print(f"Arduino says: {response}")
+        try:
+            if isinstance(command, int):
+                command = str(command)  # Convert integer to string
+            ser.write((command + '\n').encode())  # Encode and add newline for Arduino to recognize the end
+            response = ser.readlines()
+            if response:
+                for line in response:
+                    res=line.decode().strip()  # Read and decode the response
+                    print(f"Arduino says: {res}")
+            else:
+                print("No response received.")
+        except serial.SerialException as e:
+            print(f"Serial communication error: {e}")
     else:
         print("Serial connection not established.")
 # ------------------- Actions ------------------- #
@@ -1090,6 +1100,8 @@ def action_turn_off_light(fulfillment_text, parameters, **kwargs):
     ser = kwargs.get('ser')
     send_command(ser, "LED_OFF")
     print("Action: Turned off the light.")
+
+
 # ------------------- Example Usage ------------------- #
 
 if __name__ == "__main__":
@@ -1101,118 +1113,28 @@ if __name__ == "__main__":
        
     }
 
-    jokes = [
-    "Why did the math book look sad? Because it had too many problems!",
-    "What do you call cheese that's not yours? Nacho cheese!",
-    "Why don't scientists trust atoms? Because they make up everything!",
-    "Why did the computer go to the doctor? Because it had a virus!",
-    "What do you get when you cross a snowman and a shark? Frostbite!",
-    "Why did the cookie go to the hospital? Because he felt crummy!",
-    "What did one volcano say to the other? I lava you!",
-    "Why did the teddy bear say no to dessert? Because she was already stuffed!",
-    "How do you make a tissue dance? Put a little boogie in it!",
-    "Why did the kid bring a ladder to school? Because he wanted to go to high school!",
-    "What do you call a sleeping bull? A bulldozer!",
-    "Why are ghosts bad liars? Because you can see right through them!",
-    "What kind of tree fits in your hand? A palm tree!",
-    "Why did the bicycle fall over? Because it was two-tired!",
-    "What do you call a bear with no teeth? A gummy bear!",
-    "Why did the melon jump into the lake? It wanted to be a watermelon!",
-    "What do you get when you cross a fish and an elephant? Swimming trunks!",
-    "Why can't Elsa have a balloon? Because she will let it go!",
-    "What do you call an alligator in a vest? An investigator!",
-    "Why did the picture go to jail? Because it was framed!",
-    ]
-    stories = [
-    "The Little Red Balloon: Once upon a time, a little red balloon floated up into the sky, carrying a child's wish for adventure. As it drifted over mountains and oceans, it collected stories from around the world to bring back home.",
-    "The Brave Little Turtle: Tommy the turtle wanted to see the world beyond his pond. One day, he mustered up the courage to explore and discovered that being brave helped him make new friends.",
-    "The Magic Paintbrush: Lily found a magic paintbrush that brought her drawings to life. She painted gardens full of flowers and shared them with everyone in her town, spreading joy and color.",
-    "The Lost Puppy: Max, a playful puppy, got lost in the city. With the help of some friendly animals, he found his way back home, learning the importance of listening to his parents.",
-    "The Friendly Dragon: In a village afraid of dragons, a young girl named Mia befriended a gentle dragon named Spark. Together, they showed everyone that friendship can overcome fear.",
-    "The Boy Who Loved Stars: Alex dreamed of touching the stars. Every night, he built a taller and taller ladder. Though he couldn't reach them, he realized that his dreams inspired others to look up and wonder.",
-    "The Talking Tree: Deep in the forest stood a tree that could talk. It shared stories of nature's wonders with a group of children, teaching them to appreciate and protect the environment.",
-    "The Kind Robot: A robot named Bolt wanted to understand human emotions. By helping people in small ways every day, Bolt learned that kindness is the key to happiness.",
-    "The Invisible Cloak: Emma found an invisible cloak that made her unseen. She used it to help others without them knowing, discovering that doing good deeds is its own reward.",
-    "The Time-Traveling Sandwich: Jake made a sandwich so delicious that it transported him back in time. He met his grandparents as children and learned valuable lessons about family.",]
-
-    songs = [
-    "Twinkle Twinkle Little Star",
-    "You Are My Sunshine",
-    "Hakuna Matata",  # From The Lion King
-    "Let It Go",  # From Frozen
-    "The Wheels on the Bus",
-    "If You're Happy and You Know It",
-    "Baby Shark",
-    "Somewhere Over the Rainbow",
-    "Can't Stop the Feeling!",  # By Justin Timberlake (from Trolls)
-    "How Far I'll Go",  # From Moana
-    "Under the Sea",  # From The Little Mermaid
-    "A Whole New World",  # From Aladdin
-    "Happy",  # By Pharrell Williams
-    "Roar",  # By Katy Perry
-    "Count on Me",  # By Bruno Mars
-    "Try Everything",  # By Shakira (from Zootopia)
-    "You've Got a Friend in Me",  # From Toy Story
-    "Do-Re-Mi",  # From The Sound of Music
-    "What a Wonderful World",  # By Louis Armstrong
-    "Three Little Birds",  # By Bob Marley
-    ]
 
     audio_files = {
-    "emotion_anger": "robot_emotion_anger.wav",
-    "emotion_confused": "robot_emotion_confused.wav",
-    "emotion_disgust": ["robot_emotion_disgust.wav", "robot_emotion_disgust_2.wav"],
-    "emotion_fear": "robot_emotion_fear.wav",
-    "emotion_happy": ["robot_emotion_happy.wav", "robot_emotion_happy_2.wav"],
-    "emotion_ops": "robot_emotion_ops.wav",
-    "emotion_realization": "robot_emotion_realization.wav",
-    "emotion_sad": "robot_emotion_sad.wav",
-    "emotion_surprise": "robot_emotion_surprise.wav",
-    "emotion_thinking": "robot_emotion_thinking.wav",
-    "fallback_responses": [
-        "robot_fallback_1.wav",
-        "robot_fallback_2.wav",
-        "robot_fallback_3.wav",
-        "robot_fallback_4.wav",
-        "robot_fallback_6.wav",
-        "robot_fallback_7.wav"
-    ],
-    "jokes": [
-        "robot_joke_1.wav",
-        "robot_joke_2.wav",
-        "robot_joke_3.wav",
-        "robot_joke_4.wav",
-        "robot_joke_5.wav",
-        "robot_joke_6.wav",
-        "robot_joke_7.wav"
-    ],
-    "lullabies": [
-        "robot_nana-1.wav",
-        "robot_nana_2.wav",
-        "robot_nana_3.wav",
-        "robot_nana_4.wav"
-    ],
-    "gibberish": [
-        "robot_short_gibber.wav",
-        "robot_short_gibber_2.wav"
-    ],
-    "sleep_sounds": "robot_sleep.wav",
-    "songs": "robot_song_1.wav",
-    "stories": [
-        "robot_story_1.wav",
-        "robot_story_2.mp3",
-        "robot_story_4.wav",
-        "robot_story_5.wav",
-        "robot_story_6.wav",
-        "robot_story_7.wav",
-        "robot_story_8.wav",
-        "robot_story_9.wav"
-    ],
-    "yawns": [
-        "robot_yawn_1.wav",
-        "robot_yawn_2.wav"
-        ]
-    }
+    "emotion_anger": "001",
+    "emotion_confused": "002",
+    "emotion_disgust": ["003", "004"],
+    "emotion_fear": "005",
+    "emotion_happy": ["006", "007"],
+    "emotion_ops": "008",
+    "emotion_realization": "009",
+    "emotion_sad": "010",
+    "emotion_surprise": "011",
+    "emotion_thinking": "012",
+    "fallback_responses": ["013", "014", "015", "016", "017", "018"],
+    "jokes": ["019", "020", "021", "022", "023", "024", "025"],
+    "welcome": ["026", "027", "028", "029"],
+    "gibberish": ["030", "031"],
+    "sleep_sounds": "032",
+    "songs": "033",
+    "stories": ["034", "035", "036", "037", "038", "039", "040", "041"],
+    "yawns": ["042", "043"]
+    }   
+
 
     parameter_entertainment=[{
         'display_name': 'entertainment_type',
@@ -1229,7 +1151,7 @@ if __name__ == "__main__":
         'default_value' : '',
         'value':'$song_type'
     }]
-    arduino_port = '/dev/cu.usbmodem1422101'  # For Mac/Linux
+    arduino_port = '/dev/cu.usbmodem1422301'  # For Mac/Linux
     # arduino_port = 'COM3'  # For Windows
 
     ser = connect_to_arduino(arduino_port)
@@ -1238,20 +1160,27 @@ if __name__ == "__main__":
     #send_command(ser, "LED_OFF")
 
     
-    #print(IntList)
+    #for index, name in enumerate(sr.Microphone.list_microphone_names()):
+    #    print("Microphone with name \"{1}\" found for `Microphone(device_index={0})`".format(index, name))
+    
     #list_entity_types(project_id=project_id)
     #list_entities_in_entity_type(project_id,"80d741a1-b69d-40d8-9251-5fcc3c857118")
 
 
-    #update_intent(project_id,"3aea8d7f-40cb-424b-84c8-2d1973d32d9d", "fallback_responses", None,None,False,False,language_code)
-    #IntList=list_intents(project_id)
+    
+    #audio_input()
     #get_intent(project_id,"ee91ffa3-e820-44e7-8d6c-870d1e872970",language_code)
+    audio_input()
     #detect_text_intent_with_sentiment_and_act(project_id,session_id, "nasfdasjo", language_code, action_map, ser=ser)
     #detect_intent_texts(project_id,session_id,["Hi"], language_code)
     #detect_intent_and_act(project_id,session_id,"Can you turn on the light","en",action_map,ser=ser)
     #transcribe_audio_and_act(project_id, session_id, "/Users/alexdebertolis/Desktop/record.wav",language_code, action_map, ser=ser)
     #update_intent_contexts("projects/humanrobot/agent/intents/e8d84166-a894-42bb-a7ae-13b248877017",project_id,[],[("request_of_entertainment_joke", 2),("request_of_entertainment_story", 2),("request_of_entertainment_song", 2)])
-    #update_intent(project_id,"257456c1-1476-4164-8d20-ef65b157690c", "Awaiting Request of Entertainment", ["I want to hear a joke.","Tell me a story.","Sing me a song.","A joke, please.","I'd like a story.","Can you sing?"], ["yeah sure here a $entertainment_type for you:"])
+    
+    IntList=list_intents(project_id)
+
+    
+
     #detect_intent_with_texttospeech_response(project_id,session_id, ["Tell me a story"], "en")
     #update_intent_parameters("projects/humanrobot/agent/intents/257456c1-1476-4164-8d20-ef65b157690c", [] )
     
