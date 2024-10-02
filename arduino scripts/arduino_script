@@ -1,0 +1,151 @@
+// Include necessary libraries
+#include <Wire.h>
+#include <Servo.h>
+#include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
+#include <MP3Player_KT403A.h>
+
+#define LED_PIN       4
+#define NUMPIXELS    74
+// Define pins for Grove modules
+#define ledPin 6
+SoftwareSerial mp3(2, 3);
+Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN);
+int LED_BRIGHTNESS = 8;  // 0-255
+int trackNumber= 0 ;
+byte neutral[] = {
+  B0000,
+  B01110,
+  B011110,
+  B0111110,
+  B011110,
+  B01110,
+  B0000
+};
+
+byte blink1[] = {
+  B0000,
+  B00000,
+  B011110,
+  B0111110,
+  B011110,
+  B00000,
+  B0000
+};
+
+byte blink2[] = {
+  B0000,
+  B00000,
+  B000000,
+  B1111111,
+  B000000,
+  B00000,
+  B0000
+};
+
+byte suprised[] = {
+  B1111,
+  B11111,
+  B111111,
+  B1111111,
+  B111111,
+  B11111,
+  B1111
+};
+
+byte happy[] = {
+  B1111,
+  B11111,
+  B111111,
+  B1100011,
+  B000000,
+  B00000,
+  B0000
+};
+
+byte angry[] = {
+  B0000,
+  B10000,
+  B110000,
+  B1111000,
+  B111110,
+  B11111,
+  B1111
+};
+
+byte sad[] = {
+  B0000,
+  B00001,
+  B000011,
+  B0001111,
+  B011111,
+  B11111,
+  B1111
+};
+
+
+void setup() {
+  // Initialize serial communication at 9600 bps
+  pixels.begin();
+  Serial.begin(9600);
+  mp3.begin(9600);
+  delay(100);
+  Serial.println(mp3);
+  SelectPlayerDevice(0x02);       // Select SD card as the player device.
+  SetVolume(0x1E);     
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);
+}
+
+void loop() {
+  // Check if data is available on the serial port
+  pixels.clear();
+  display_eyes(angry, 125);
+  pixels.show();
+  if (Serial.available() > 0) {
+    // Read the incoming string
+    String command = Serial.readStringUntil('\n');
+    Serial.println(command.toInt());
+    command.trim();  // Remove any whitespace or newline characters
+
+    // Handle the command
+    if (command == "LED_ON") {
+      digitalWrite(ledPin, HIGH);
+      Serial.println("LED is turned ON");
+    } else if (command == "LED_OFF") {
+      digitalWrite(ledPin, LOW);
+      Serial.println("LED is turned OFF");
+    } else if (command.toInt() > 0) {
+      trackNumber = command.toInt();
+      Serial.println("Playing track number: " + String(trackNumber));
+      SpecifyMusicPlay(trackNumber);
+    } else {
+      Serial.println("Unknown command: " + command);
+    }
+  }
+  
+}
+
+
+
+
+void display_eyes(byte arr[], int hue){
+   display_eye(arr, hue, true);
+   display_eye(arr, hue, false);
+}
+
+void display_eye(byte arr[], int hue, bool left) {
+  // We will draw a circle on the display
+  // It is a hexagonal matrix, which means we have to do some math to know where each pixel is on the screen
+
+  int rows[] = {4, 5, 6, 7, 6, 5, 4};      // The matrix has 4, 5, 6, 7, 6, 5, 4 rows.
+  int NUM_COLUMNS = 7;                     // There are 7 columns
+  int index = (left) ? 0 : 37;             // If we draw the left eye, we have to add an offset of 37 (4+5+6+7+6=5+4)
+  for (int i = 0; i < NUM_COLUMNS; i++) {
+    for (int j = 0; j < rows[i]; j++) {
+      int brightness = LED_BRIGHTNESS * bitRead(arr[i], (left) ? rows[i] - 1 - j : j);
+      pixels.setPixelColor(index, pixels.ColorHSV(hue * 256, 255, brightness));
+      index ++;
+    }
+  }
+}
