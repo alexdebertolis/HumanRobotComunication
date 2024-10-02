@@ -46,9 +46,9 @@ byte blink2[] = {
 byte suprised[] = {
   B1111,
   B11111,
-  B111111,
-  B1111111,
-  B111111,
+  B110011,
+  B1100011,
+  B110011,
   B11111,
   B1111
 };
@@ -95,14 +95,18 @@ void setup() {
   SetVolume(0x1E);     
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, LOW);
+  pixels.clear();
+  display_eyes(neutral, 125);
+  pixels.show();
 }
 
 void loop() {
   // Check if data is available on the serial port
-  pixels.clear();
-  display_eyes(angry, 125);
-  pixels.show();
+    
   if (Serial.available() > 0) {
+    pixels.clear();
+    display_eyes(happy, 125);
+    pixels.show();
     // Read the incoming string
     String command = Serial.readStringUntil('\n');
     Serial.println(command.toInt());
@@ -116,14 +120,52 @@ void loop() {
       digitalWrite(ledPin, LOW);
       Serial.println("LED is turned OFF");
     } else if (command.toInt() > 0) {
-      trackNumber = command.toInt();
+      trackNumber = command.toInt() + (command.toInt()-1);
       Serial.println("Playing track number: " + String(trackNumber));
       SpecifyMusicPlay(trackNumber);
+      if (command.toInt() == 2){
+        Serial.println("Surprise" + command);
+        pixels.clear();
+        display_eyes(suprised, 30);
+        pixels.show();
+      } else if (command.toInt() >= 19 &&  command.toInt() <= 25) {
+         Serial.println("Joke" + command);
+         pixels.clear();
+         display_eyes(happy, 350);
+         pixels.show();
+      } else if (command.toInt() >= 30 &&  command.toInt() <= 41) {
+         Serial.println("Story" + command);
+         pixels.clear();
+         display_eyes(happy, 90);
+         pixels.show();
+      } else if (command.toInt() == 32) {
+         Serial.println("Song" + command);
+         pixels.clear();
+         display_eyes(happy, 140);
+         pixels.show();
+      }  else if (command.toInt() == 1) {
+         Serial.println("Anger" + command);
+         pixels.clear();
+         display_eyes(angry, 0);
+         pixels.show();
+      } else if (command.toInt() == 6 ||command.toInt() == 7 ) {
+         Serial.println("Happy" + command);
+         pixels.clear();
+         display_eyes(blink2, 180);
+         pixels.show();
+      }
+      
+    
+
     } else {
       Serial.println("Unknown command: " + command);
     }
   }
-  
+    /*delay(6000);
+      pixels.clear();
+      display_eyes(happy, 125);
+      pixels.show();
+      */
 }
 
 
