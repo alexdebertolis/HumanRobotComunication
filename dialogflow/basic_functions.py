@@ -1127,12 +1127,13 @@ if __name__ == "__main__":
     "emotion_thinking": "012",
     "fallback_responses": ["013", "014", "015", "016", "017", "018"],
     "jokes": ["019", "020", "021", "022", "023", "024", "025"],
-    "welcome": ["026", "027", "028", "029"],
-    "gibberish": ["030", "031"],
-    "sleep_sounds": "032",
-    "songs": "033",
-    "stories": ["034", "035", "036", "037", "038", "039", "040", "041"],
-    "yawns": ["042", "043"]
+    "nana": ["026", "027", "028", "029"],
+    "sleep_sounds": "031",
+    "songs": "032",
+    "angry_robot": "033",
+    "stories": ["030", "035", "036", "037", "038", "039", "040", "041"],
+    "yawns": ["042", "043"],
+    "oona": ["044","045","046","047"]
     }   
 
 
@@ -1159,7 +1160,7 @@ if __name__ == "__main__":
     # Send commands to the Arduino
     #send_command(ser, "LED_OFF")
 
-    
+    #update_intent(project_id,"3aea8d7f-40cb-424b-84c8-2d1973d32d9d", )
     #for index, name in enumerate(sr.Microphone.list_microphone_names()):
     #    print("Microphone with name \"{1}\" found for `Microphone(device_index={0})`".format(index, name))
     
