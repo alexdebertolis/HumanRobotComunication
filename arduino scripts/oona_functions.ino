@@ -8,7 +8,7 @@
 #define NUMPIXELS    37
 #define MAX_FILES 4
 
-// Define a structure to hold audio file information
+
 
 Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN);
 int LED_BRIGHTNESS = 255;  // Brightness level from 0-255 for hexagonal led
@@ -107,6 +107,8 @@ const uint8_t IMAGES[][8] = {
   0b00001000
 }};
 const int IMAGES_LEN = sizeof(IMAGES)/8;
+
+// Define a structure to hold audio file information
 struct AudioFiles {
     const char* key;
     const char* files[MAX_FILES];
@@ -185,14 +187,14 @@ void display_bytes(byte arr[], int hue, bool left) {
   }
 }
 
-void displayStaticColor(uint8_t r, uint8_t g, uint8_t b) {
+void displayStaticColor(uint8_t r, uint8_t g, uint8_t b) { // display a full bytes static color in the matrix
     for(int i = 0; i < pixels.numPixels(); i++) {
         pixels.setPixelColor(i, pixels.Color(r, g, b));
     }
     pixels.show(); // Update the strip to set the new colors
 }
 
-void  push_icon() {
+void  push_icon() { // loop of the pushing the button icon *change the condition to exit the loop
   while (true) {
   matrix.clear();
   matrix.writeOnePicture(IMAGES[4]);
@@ -204,7 +206,7 @@ void  push_icon() {
   }
 }
 
-void countdown_matrix() {
+void countdown_matrix() { //display a 3 2 1 countodown
   matrix.clear();
   matrix.writeNumber(3,1000);
   matrix.display();
@@ -218,7 +220,7 @@ void countdown_matrix() {
 
 }
 
-void gradientBlink(uint8_t r, uint8_t g, uint8_t b, int delayms) {
+void gradientBlink(uint8_t r, uint8_t g, uint8_t b, int delayms) { 
   // Fade in
   for(int i = 0; i < 256; i++) {
     setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255);
