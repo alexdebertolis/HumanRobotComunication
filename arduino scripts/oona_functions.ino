@@ -3,15 +3,28 @@
 #include "Grove_LED_Matrix_Driver_HT16K33.h"
 #include <Adafruit_NeoPixel.h>
 
+#include <Servo.h>
+#include <SoftwareSerial.h>
+#include "WT2605C_Player.h"
+
+#ifdef __AVR__
+  #include <SoftwareSerial.h>
+  SoftwareSerial SSerial(2, 3); // RX, TX
+  #define COMSerial SSerial
+  #define ShowSerial Serial
+
+  WT2605C<SoftwareSerial> Mp3Player;
+#endif
+
 // Pin and LED configuration
-#define LED_PIN       4
+#define LED_PIN       5
 #define NUMPIXELS    37
 #define MAX_FILES 4
 
 
 
 Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN);
-int LED_BRIGHTNESS = 255;  // Brightness level from 0-255 for hexagonal led
+int LED_BRIGHTNESS = 180;  // Brightness level from 0-255 for hexagonal led
 
 byte neutral[] = { //byte structure for display_bytes function
   B1111,
@@ -116,48 +129,99 @@ struct AudioFiles {
 };
 
 AudioFiles audioFiles[] = {
-    {"emotion_confused", {"001"}, 1},
-    {"emotion_fear", {"002"}, 1},
-    {"emotion_happy", {"003", "004"}, 2},
-    {"user_understand_suggestion", {"003", "004"}, 2},
-    {"emotion_try_again", {"005"}, 1},
-    {"emotion_realization", {"006"}, 1},
-    {"emotion_sad", {"007"}, 1},
-    {"emotion_correct", {"008"}, 1},
-    {"sleep_sounds", {"009"}, 1},
-    {"songs", {"010"}, 1},
-    {"yawns", {"011", "012"}, 2},
-    {"oona", {"013", "014", "015", "016"}, 4}
+    {"emotion_confused", {"17"}, 1},
+    {"emotion_fear", {"1"}, 1},
+    {"emotion_happy", {"2"}, 1},
+    {"user_understand_suggestion", {"2"}, 1},
+    {"emotion_try_again", {"4"}, 1},
+    {"emotion_realization", {"5"}, 1},
+    {"emotion_sad", {"6"}, 1},
+    {"emotion_correct", {"7"}, 1},
+    {"user_dont_want_suggestion", {"8"}, 1},
+    {"user_dont_want_play1", {"8"}, 1},
+    {"songs", {"9"}, 1},
+    {"yawns", {"10", "11"}, 2},
+    {"oona", {"12", "13", "14", "15"}, 4},
+    {"look", {"18"},1},
+    {"your_turn", {"16"}, 1}
 };
 
 const int numAudioFiles = sizeof(audioFiles) / sizeof(AudioFiles);
 
 
-trackNumber = 0 // command.toInt() + (command.toInt()-1); to get the right track on the sd card SpecifyMusicPlay(trackNumber)
+int trackNumber = 0 ;// command.toInt() + (command.toInt()-1); to get the right track on the sd card SpecifyMusicPlay(trackNumber)
 
 Matrix_8x8 matrix;
 
 void setup() {
+    ShowSerial.begin(9600);     // Start the hardware serial to communicate with PC
+    COMSerial.begin(115200);    // Start software serial for MP3 module
+    while (!ShowSerial);        // Wait for the serial monitor to open
+    
+    ShowSerial.println("Initializing MP3 Player...");
+    Mp3Player.init(COMSerial);  // Initialize the MP3 player
+    ShowSerial.println("MP3 Player Initialized!");
     Wire.begin();
     matrix.init();
-    matrix.setBrightness(15);
+    matrix.clear();
+    matrix.setBrightness(4);
     matrix.setBlinkRate(BLINK_OFF);
     pixels.begin();
     pixels.clear();
-    gradientTurnOn(255,20,147,2000);
-    pixels.show();
+    Serial.begin(9600);
+   
+    delay(100);
+   
+    displayStaticColor(255,20,147,150);
+    
+    
+  
+    
 }
 
 void loop() {
+  
+  // Check if there is any incoming data from the Serial Monitor
+  if (ShowSerial.available()) {
+    String input = ShowSerial.readStringUntil('\n');
+    input.trim();  // Remove any whitespace
 
-  pixels.clear();
-  displayStaticColor(255,20,147)
-  pixels.show();
+    if (input.startsWith("I - ")) {
+      // Handling intent input
+      String intentName = input.substring(4);  // Get the intent name after "I - "
+      ShowSerial.println("Received intent: " + intentName);
+      // Here, you might map intents to actions or track numbers
+    }
+    else if (input.startsWith("T - ")) {
+      // Handling track number input
+      uint32_t trackNumber = input.substring(4).toInt();  // Get the track number after "T - "
+      ShowSerial.println("Playing track number: " + String(trackNumber));
+      Mp3Player.playSDRootSong(trackNumber);  // Play the song by track number from the SD card
+    }
+  }
+
+
+  //matrix.writeOnePicture(IMAGES[1]);
+  //matrix.display();
 
 
 
 }
 
+void handleCommand(String command) {
+  if (command.startsWith("T - ")) {
+    int c=command.substring(4).toInt();
+    trackNumber = c + (c-1); // Extract track number
+    Serial.print("Playing track number: ");
+    Serial.println(trackNumber);
+   
+  }
+  if (command.startsWith("I - ")) {
+    String intent = command.substring(4);
+    Serial.print("Intent detected:" + intent);
+  }
+
+}
 
 // Function to get audio file numbers by key
 const char** getAudioFiles(const char* key, uint8_t &count) {
@@ -187,12 +251,7 @@ void display_bytes(byte arr[], int hue, bool left) {
   }
 }
 
-void displayStaticColor(uint8_t r, uint8_t g, uint8_t b) { // display a full bytes static color in the matrix
-    for(int i = 0; i < pixels.numPixels(); i++) {
-        pixels.setPixelColor(i, pixels.Color(r, g, b));
-    }
-    pixels.show(); // Update the strip to set the new colors
-}
+
 
 void  push_icon() { // loop of the pushing the button icon *change the condition to exit the loop
   while (true) {
@@ -220,40 +279,46 @@ void countdown_matrix() { //display a 3 2 1 countodown
 
 }
 
-void gradientBlink(uint8_t r, uint8_t g, uint8_t b, int delayms) { 
-  // Fade in
-  for(int i = 0; i < 256; i++) {
-    setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255);
-    pixels.show();
-    delay(delayms / 512);  // Adjusted for two fades (in and out) over the same delay period
-  }
-  // Fade out
-  for(int i = 255; i >= 0; i--) {
-    setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255);
-    pixels.show();
-    delay(delayms / 512);
-  }
+void displayStaticColor(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
+    for (int i = 0; i < pixels.numPixels(); i++) {
+        pixels.setPixelColor(i, pixels.Color((r * brightness) / 255, (g * brightness) / 255, (b * brightness) / 255));
+    }
+    pixels.show(); // Update the strip to set the new colors
 }
 
-void setAllPixels(uint8_t r, uint8_t g, uint8_t b) {
-  for(int i = 0; i < pixels.numPixels(); i++) {
-    pixels.setPixelColor(i, pixels.Color(r, g, b));
-  }
+void gradientBlink(uint8_t r, uint8_t g, uint8_t b, int delayms, uint8_t brightness) {
+    // Fade in
+    for (int i = 0; i < 256; i++) {
+        setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255, brightness);
+        pixels.show();
+        delay(delayms / 512);  // Adjusted for two fades (in and out) over the same delay period
+    }
+    // Fade out
+    for (int i = 255; i >= 0; i--) {
+        setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255, brightness);
+        pixels.show();
+        delay(delayms / 512);
+    }
 }
 
-
-void gradientTurnOff(uint8_t r, uint8_t g, uint8_t b, int transitionTime) {
-  for(int i = 255; i >= 0; i--) {
-    setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255);
-    pixels.show();
-    delay(transitionTime / 256);
-  }
+void setAllPixels(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
+    for (int i = 0; i < pixels.numPixels(); i++) {
+        pixels.setPixelColor(i, pixels.Color((r * brightness) / 255, (g * brightness) / 255, (b * brightness) / 255));
+    }
 }
 
-void gradientTurnOn(uint8_t r, uint8_t g, uint8_t b, int transitionTime) {
-  for(int i = 0; i < 256; i++) {
-    setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255);
-    pixels.show();
-    delay(transitionTime / 256);
-  }
+void gradientTurnOff(uint8_t r, uint8_t g, uint8_t b, int transitionTime, uint8_t brightness) {
+    for (int i = 255; i >= 0; i--) {
+        setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255, brightness);
+        pixels.show();
+        delay(transitionTime / 256);
+    }
+}
+
+void gradientTurnOn(uint8_t r, uint8_t g, uint8_t b, int transitionTime, uint8_t brightness) {
+    for (int i = 0; i < 256; i++) {
+        setAllPixels((r * i) / 255, (g * i) / 255, (b * i) / 255, brightness);
+        pixels.show();
+        delay(transitionTime / 256);
+    }
 }
