@@ -1,7 +1,5 @@
 
-
-
-
+import pyaudio
 from pydub import AudioSegment
 from google.cloud import dialogflow
 from google.oauth2 import service_account
@@ -14,6 +12,7 @@ import speech_recognition as sr
 import noisereduce as nr
 import numpy as np
 import wave
+import pygame
 
 session_id = '123'  # This can be any unique identifier
 language_code = 'en'
@@ -114,7 +113,7 @@ def list_entities_in_entity_type(project_id, entity_type_id):
 
 
    
-def detect_text_intent_with_sentiment_and_act(project_id, session_id, text, language_code, **kwargs):
+def detect_text_intent_with_sentiment_and_act(project_id, session_id, text, language_code, actionMap, **kwargs):
     """
     Detects intent and sentiment from text using Dialogflow, and performs
     the corresponding action based on the provided intent-action mapping.
@@ -159,9 +158,10 @@ def detect_text_intent_with_sentiment_and_act(project_id, session_id, text, lang
     parameters = dict(query_result.parameters)
     sentiment = query_result.sentiment_analysis_result.query_text_sentiment
     sentiment_level=""
-    command_type="S"
+    
     inp_context= query_result.intent.input_context_names
     out_context= query_result.intent.output_contexts
+    
 
    
 
@@ -188,13 +188,40 @@ def detect_text_intent_with_sentiment_and_act(project_id, session_id, text, lang
     
     print("sentiment level:"+ sentiment_level)
     print(f"Inpunt Contexts: {inp_context} Output Contexts: {out_context}" )
+
+    if intent_name == "emotion_happy" :
+        send_command(ser,"I","1")
+        play_sound_for_intent(intent_name)
+        time.sleep(3.5)
+        play_sound_for_intent("look")
+        time.sleep(0.75)
+        play_sound_for_intent("look")
+    elif intent_name == "emotion_confused" :
+        send_command(ser,"I","2")
+        play_sound_for_intent(intent_name)
+        time.sleep(3.5)
+        play_sound_for_intent("look")
+        time.sleep(0.75)
+        play_sound_for_intent("look")
+    elif intent_name == "user_understand_suggestion":
+
+        send_command(ser,"I","3")
+        time.sleep(0.5)
+        play_sound_for_intent("your_turn")
+
+    elif intent_name == "user_dont_want_suggestion":
+        send_command(ser,"I","0")
+        time.sleep(1)
+        play_sound_for_intent(intent_name)
+
+    
     
 
     
 def audio_input():
 
 
-    mic_index = 1  # Index of the microphone you want to use
+    mic_index = 2  # Index of the microphone you want to use
     recognizer = sr.Recognizer()
 
     with sr.Microphone(device_index=mic_index) as source:
@@ -226,7 +253,7 @@ def audio_input():
             
 
             # Process the recognized text for intent detection
-            detect_text_intent_with_sentiment_and_act(project_id,session_id,text,language_code,ser=ser)
+            detect_text_intent_with_sentiment_and_act(project_id,session_id,text,language_code,audio_files,ser=ser)
            
         
 
@@ -248,6 +275,23 @@ def convert_audio_to_mono(input_audio_path, output_audio_path):
     mono_audio.export(output_audio_path, format="wav")
     print(f"Audio file {input_audio_path} converted to mono and saved as {output_audio_path}")
 
+def play_sound_for_intent(intent_name):
+    """ Play sound based on the given intent name. """
+    # Check if the intent name is in the dictionary
+    if intent_name in audio_files:
+        # Get the filename from the dictionary
+        filename = audio_files[intent_name]
+        try:
+            # Load and play the sound file
+            pygame.mixer.music.load(filename)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():  # Wait for the music to finish playing
+                pygame.time.Clock().tick(10)
+            print(f"Played sound for intent: {intent_name}")
+        except Exception as e:
+            print(f"Failed to play sound: {e}")
+    else:
+        print(f"No audio file mapped for intent: {intent_name}")
 
 
 
@@ -262,26 +306,41 @@ def connect_to_arduino(port, baudrate=9600, timeout=1):
         print(f"Error connecting to Arduino: {e}")
         return None
 
-def send_command(ser,command_type,command,):
+def send_command(ser, command_type, command):
     if ser:
         try:
-            kommand =f"{command_type}{command}\n"  # Convert integer to string
-            ser.write(kommand.encode())  # Encode and add newline for Arduino to recognize the end
-            print("arduino command:  " + kommand)
-            response = ser.readlines()
-            if response:
-                for line in response:
-                    res=line.decode().strip()  # Read and decode the response
-                    print(f"Arduino says: {res}")
-            else:
-                print("No response received.")
+            # Prepare the command with the correct format and a newline character
+            command = f"{command_type}{command}\n"
+            # Send the command to the Arduino
+            ser.write(command.encode())
+            print("Sent command to Arduino:", command.strip())
+            # Allow some time for the Arduino to respond
+            time.sleep(0.5)
+            # Read all lines that Arduino has sent in response
+            while ser.in_waiting:
+                try:
+                    line = ser.readline()
+                    # Attempt to decode the line with UTF-8 encoding
+                    response = line.decode('utf-8').strip()
+                    print("Arduino responds:", response)
+                except UnicodeDecodeError:
+                    # Handle the case where decoding fails
+                    response = line.decode('latin1').strip()
+                    print("Decoding error, Arduino response (latin1):", response)
         except serial.SerialException as e:
             print(f"Serial communication error: {e}")
     else:
         print("Serial connection not established.")
+
 # ------------------- Actions ------------------- #
 
 
+def list_audio_devices():
+    p = pyaudio.PyAudio()
+    print("Listing all audio devices:")
+    for i in range(p.get_device_count()):
+        device_info = p.get_device_info_by_index(i)
+        print(f"Index: {device_info['index']} - Name: {device_info['name']}")
 
 
 # ------------------- Example Usage ------------------- #
@@ -289,47 +348,67 @@ def send_command(ser,command_type,command,):
 if __name__ == "__main__":
 
 
-
     audio_files = {
-    "emotion_anger": "001",
-    "emotion_confused": "002",
-    "emotion_disgust": ["003", "004"],
-    "emotion_fear": "005",
-    "emotion_happy": ["006", "007"],
-    "user_understand_suggestion":["006", "007"],
-    "emotion_ops": "008",
-    "emotion_realization": "009",
-    "emotion_sad": "010",
-    "emotion_surprise": "011",
-    "emotion_thinking": "012",
-    "fallback_responses": ["013", "014", "015", "016", "017", "018"],
-    "jokes": ["019", "020", "021", "022", "023", "024", "025"],
-    "nana": ["026", "027", "028", "029"],
-    "sleep_sounds": "031",
-    "songs": "032",
-    "angry_robot": "033",
-    "stories": ["030", "035", "036", "037", "038", "039", "040", "041"],
-    "yawns": ["042", "043"],
-    "oona": ["044","045","046","047"]
-    }   
+        "emotion_confused": "/Users/alexdebertolis/Desktop/robot audio mp32/001.mp3",
+        "emotion_fear": "/Users/alexdebertolis/Desktop/robot audio mp32/002.mp3",
+        "emotion_happy": "/Users/alexdebertolis/Desktop/robot audio mp32/003.mp3",
+        "user_understand_suggestion": "/Users/alexdebertolis/Desktop/robot audio mp32/003.mp3",
+        "emotion_try_again": "/Users/alexdebertolis/Desktop/robot audio mp32/005.mp3",
+        "emotion_realization": "/Users/alexdebertolis/Desktop/robot audio mp32/006.mp3",
+        "emotion_sad": "/Users/alexdebertolis/Desktop/robot audio mp32/007.mp3",
+        "emotion_correct": "/Users/alexdebertolis/Desktop/robot audio mp32/008.mp3",
+        "user_dont_want_suggestion": "/Users/alexdebertolis/Desktop/robot audio mp32/011.mp3",
+        "user_dont_want_play1": "/Users/alexdebertolis/Desktop/robot audio mp32/011.mp3",
+        "songs": "/Users/alexdebertolis/Desktop/robot audio mp32/010.mp3",
+        "oona": "/Users/alexdebertolis/Desktop/robot audio mp32/013.mp3",
+        "look": "/Users/alexdebertolis/Desktop/robot audio mp32/017.mp3",
+        "your_turn": "/Users/alexdebertolis/Desktop/robot audio mp32/018.mp3"
+    }
 
-
-    
-    arduino_port = '/dev/cu.usbmodem1422301'  # For Mac/Linux
+        
+    arduino_port = '/dev/cu.usbmodem1412301'  # For Mac/Linux
     # arduino_port = 'COM3'  # For Windows
+    
 
     ser = connect_to_arduino(arduino_port)
+    pygame.mixer.init()
+    
+    while True:
+        user_input = input("Enter command or 'exit' to quit: ")
+        if user_input == "exit":
+            break
+        if user_input == "1" :
+            audio_input()
+        if user_input == "2": 
+            send_command(ser,"I","1")
+            play_sound_for_intent("emotion_happy")
+            time.sleep(3.5)
+            play_sound_for_intent("look")
+            time.sleep(0.75)
+            play_sound_for_intent("look")
+        if user_input == "3":
+            send_command(ser,"I","3" )
+            time.sleep(1.5)
+            play_sound_for_intent("your_turn")
+        if user_input == "4":
+            play_sound_for_intent("emotion_correct")
+        if user_input == "5":
+            play_sound_for_intent("emotion_try_again")
+        if user_input == "6":
+            play_sound_for_intent("emotion_realization")
+            time.sleep(4)
+            play_sound_for_intent("look")
+            time.sleep(0.75)
+            play_sound_for_intent("look")
 
-    
-
-    
-    IntList=list_intents(project_id)
-    
-    
-   
-    audio_input()
-   
-
-    
-
-    
+        if user_input == "7":
+            play_sound_for_intent("oona")
+        if user_input == "0":
+            send_command(ser, "I", "0")
+            time.sleep(1)
+            play_sound_for_intent("user_dont_want_suggestion")
+        if user_input == "8":
+            play_sound_for_intent("your_turn")
+        if user_input =="9":
+            send_command(ser, "I", "9")
+            play_sound_for_intent("songs")
