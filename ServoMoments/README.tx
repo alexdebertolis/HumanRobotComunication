@@ -1,0 +1,24 @@
+
+// WE HAVE TO INCLUDE THE LIBRARY FOR THE SERVO MOTORS
+#include "ServoMovements.h"
+
+
+/// IN THE VOID SETUP WE CALL DE FUNCTION setupServos()
+void setup() {
+  setupServos();  // Configuración inicial de los servos
+}
+
+//then we can call the functions in the code 
+// example
+void loop() {
+  moveHappy();
+  delay(1000);
+  moveNo();
+  delay(1000);
+  moveConfused();
+  delay(1000);
+  moveMatrix();
+  delay(1000);
+  moveSleep();
+  delay(2000);
+}
